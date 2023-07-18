@@ -1,22 +1,61 @@
-import Image from "next/image";
-import { Inter } from "next/font/google";
-import { useAuthContext } from "@/provider/AuthContext";
-import { useRouter } from "next/router";
-import React from "react";
-import { User } from "firebase/auth";
-import Home from "@/container/Home";
-import { APP_ROUTES } from "@/global/constants/appRoutes";
-
-const inter = Inter({ subsets: ["latin"] });
+import React, { useEffect, useState } from "react";
+import { getMessaging, getToken, onMessage } from "firebase/messaging";
+import firebase_app from "@/firebase/config";
 
 const HomePage = () => {
-  const { user } = useAuthContext() as { user: User };
-  const router = useRouter();
+  const [token, setToken] = useState<string[]>();
+  const [messages, setMessages] = useState<string[]>([]);
 
-  React.useLayoutEffect(() => {
-    if (user == null) router.push(APP_ROUTES.login);
-  }, [user]);
-  return user ? <Home /> : <></>;
+  const requestPermission = () => {
+    console.log("Requesting permission...");
+
+    Notification.requestPermission().then((permission) => {
+      console.log(permission);
+    });
+  };
+
+  useEffect(() => {
+    requestPermission();
+
+    getToken(getMessaging(firebase_app), {
+      vapidKey:
+        "BJcGMAHGrbk3ISsjtQXxyKb2qVOkY-aN2HQ3mG-IvIjtT8QxPK0lrayVbHELl_F-fpklp-Ij9K_7gPqKNQNIwBs",
+    })
+      .then((currentToken) => {
+        if (currentToken) {
+          console.log(currentToken);
+
+          setToken([currentToken]);
+        } else {
+          // Show permission request UI
+          console.log(
+            "No registration token available. Request permission to generate one."
+          );
+        }
+      })
+      .catch((err) => {
+        console.log("An error occurred while retrieving token. ", err);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!token?.length) return;
+
+    onMessage(getMessaging(firebase_app), (payload) => {
+      console.log(payload);
+
+      setMessages((pre) => [...pre, payload.data?.payload || ""]);
+    });
+  }, [token]);
+
+  return (
+    <>
+      <p>content </p>
+      {messages.map((e, ind) => (
+        <p key={ind}>{e}</p>
+      ))}
+    </>
+  );
 };
 
 export default HomePage;
